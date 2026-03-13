@@ -12,7 +12,7 @@ Antfarm provisions multi-agent workflows for OpenClaw. It installs workflow agen
 
 1. **Clone the repo** into the OpenClaw workspace:
    ```bash
-   git clone https://github.com/snarktank/antfarm.git ~/.openclaw/workspace/antfarm
+   git clone https://github.com/yaobin1107/antfarm.git ~/.openclaw/workspace/antfarm
    ```
 
 2. **Build:**
