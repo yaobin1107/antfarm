@@ -77,6 +77,7 @@ export type WorkflowSpec = {
   name?: string;
   version?: number;
   polling?: PollingConfig;
+  working?: PollingConfig;
   agents: WorkflowAgent[];
   steps: WorkflowStep[];
   context?: Record<string, string>;
