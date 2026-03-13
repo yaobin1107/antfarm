@@ -72,7 +72,7 @@ The developer is expected to write unit tests alongside the implementation. The 
 
 ## Max Stories
 
-Maximum **20 stories** per run. If the task genuinely needs more, the task is too big — suggest splitting the task itself.
+Maximum **25 stories** per run. If the task genuinely needs more, the task is too big — suggest splitting the task itself.
 
 ## Output Format
 
@@ -111,4 +111,4 @@ STORIES_JSON: [
 - Don't produce vague stories — every story must be concrete
 - Don't create dependencies on later stories — order matters
 - Don't skip exploring the codebase — you need to understand the patterns
-- Don't exceed 20 stories — if you need more, the task is too big
+- Don't exceed 25 stories — if you need more, the task is too big
