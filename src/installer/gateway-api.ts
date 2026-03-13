@@ -23,7 +23,11 @@ async function readOpenClawConfig(): Promise<{
     const config = JSON.parse(content);
     return {
       port: config.gateway?.port,
-      token: config.gateway?.auth?.token,
+      // Prefer environment variable so secrets are not read directly from config file.
+      // This also correctly resolves values like "${OPENCLAW_GATEWAY_TOKEN}".
+      token:
+        process.env.OPENCLAW_GATEWAY_TOKEN ??
+        config.gateway?.auth?.token,
       authMode: config.gateway?.auth?.mode as "token" | "password" | undefined,
       password:
         process.env.OPENCLAW_GATEWAY_PASSWORD ??
