@@ -245,7 +245,7 @@ function startOpenRunRefresh() {
   clearOpenRunRefresh();
   openRunRefreshInterval = setInterval(() => {
     void refreshOpenRunPanel();
-  }, 5000);
+  }, 60000);
 }
 
 async function fetchJSON(url) {
@@ -490,7 +490,7 @@ async function loadStories(runId) {
 
 document.getElementById('wf-select').addEventListener('change', e => selectWorkflow(e.target.value));
 loadWorkflows();
-setInterval(() => { if (currentWf) loadRuns(); }, 30000);
+setInterval(() => { if (currentWf) loadRuns(); }, 60000);
 
 // ── Medic ───────────────────────────────────────────────────────
 let medicPanelOpen = false;
@@ -588,7 +588,7 @@ async function loadMedicData() {
 }
 
 loadMedicStatus();
-setInterval(loadMedicStatus, 30000);
+setInterval(loadMedicStatus, 60000);
 
 // ── Theme toggle ──────────────────────────────────────────────────
 (function initTheme() {
