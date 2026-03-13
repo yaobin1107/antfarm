@@ -9,7 +9,7 @@ description: |
   PR agent creates the pull request.
 
 polling:
-  model: default
+  model: aliyun/qwen3.5-122b-a10b
   timeoutSeconds: 120
 
 agents:
