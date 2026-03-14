@@ -10,10 +10,10 @@ description: |
   Then integration/E2E testing, PR creation, and code review.
 
 polling:
-  model: aliyun/qwen3.5-122b-a10b    # 默认心跳模型
+  model: aliyun/qwen3-max-2025-09-23    # 默认心跳模型
   timeoutSeconds: 120
 working:
-  model: aliyun/qwen3.5-122b-a10b    # 默认工作执行模型
+  model: bailian/qwen3.5-plus    # 默认工作执行模型
   timeoutSeconds: 120
 
 agents:
