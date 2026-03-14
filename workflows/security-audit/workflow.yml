@@ -9,7 +9,7 @@ description: |
   Verifier confirms each fix. Tester runs final integration validation. PR agent creates the pull request.
 
 polling:
-  model: aliyun/qwen3-max-2025-09-23    # 默认心跳模型
+  model: aliyun/qwen3-omni-flash-realtime    # 默认心跳模型
   timeoutSeconds: 120
 working:
   model: bailian/qwen3.5-plus    # 默认工作执行模型
