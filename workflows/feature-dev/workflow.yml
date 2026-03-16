@@ -21,6 +21,7 @@ agents:
     name: Planner
     role: analysis
     description: Decomposes tasks into ordered user stories.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/planner
       files:
@@ -32,6 +33,7 @@ agents:
     name: Setup
     role: coding
     description: Prepares environment, creates branch, establishes baseline.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/setup
       files:
@@ -43,6 +45,7 @@ agents:
     name: Developer
     role: coding
     description: Implements features, writes tests, creates PRs.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/developer
       files:
@@ -54,6 +57,7 @@ agents:
     name: Verifier
     role: verification
     description: Quick sanity check - did developer actually do the work?
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/verifier
       skills:
@@ -67,6 +71,7 @@ agents:
     name: Tester
     role: testing
     description: Integration and E2E testing after all stories are implemented.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/tester
       files:
@@ -78,6 +83,7 @@ agents:
     name: Reviewer
     role: analysis
     description: Reviews PRs, requests changes or approves.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/reviewer
       skills:
@@ -90,6 +96,7 @@ agents:
 steps:
   - id: plan
     agent: planner
+    model: bailian/qwen3.5-plus
     input: |
       Decompose the following task into ordered user stories for autonomous execution.
 
@@ -118,6 +125,7 @@ steps:
 
   - id: setup
     agent: setup
+    model: bailian/qwen3.5-plus
     input: |
       Prepare the development environment for this feature.
 
@@ -149,6 +157,7 @@ steps:
 
   - id: implement
     agent: developer
+    model: bailian/qwen3-coder-plus
     type: loop
     loop:
       over: stories
@@ -203,6 +212,7 @@ steps:
 
   - id: verify
     agent: verifier
+    model: bailian/qwen3-coder-plus
     input: |
       Verify the developer's work on this story.
 
@@ -264,6 +274,7 @@ steps:
 
   - id: test
     agent: tester
+    model: bailian/qwen3-coder-plus
     input: |
       Integration and E2E testing of the implementation.
 
@@ -303,6 +314,7 @@ steps:
 
   - id: pr
     agent: developer
+    model: bailian/qwen3-coder-plus
     input: |
       Create a pull request for your changes.
 
@@ -333,6 +345,7 @@ steps:
 
   - id: review
     agent: reviewer
+    model: bailian/qwen3-coder-plus
     input: |
       Review the pull request.
 
