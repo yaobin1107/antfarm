@@ -1,3 +1,10 @@
+/**
+ * 子代理白名单管理 — 控制 OpenClaw 中哪些 agent 可以相互调用。
+ *
+ * Antfarm 的两阶段轮询需要轮询 agent 通过 sessions_spawn 启动工作 agent，
+ * 因此必须在 tools.agentToAgent.allow 中注册所有工作流 agent。
+ * 如果用户已配置 "*"（允许全部），则跳过修改。
+ */
 type AgentToAgentConfig = {
   enabled?: boolean;
   allow?: string[];

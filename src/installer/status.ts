@@ -1,3 +1,21 @@
+/**
+ * 工作流状态查询与控制 — 提供 run 的查看、列表和停止操作。
+ *
+ * 状态查询支持多种匹配方式（按优先级）：
+ *   1. 运行编号（纯数字）
+ *   2. 任务标题精确匹配
+ *   3. 任务标题子串匹配
+ *   4. 运行 ID 前缀匹配
+ */
+/**
+ * 工作流状态查询和管理 — 支持按任务名、运行编号、运行 ID 查找运行记录。
+ *
+ * 查询策略（优先级从高到低）：
+ *   1. 纯数字 → 按 run_number 匹配
+ *   2. 精确任务名匹配
+ *   3. 任务名子串匹配
+ *   4. run ID 前缀匹配
+ */
 import { getDb } from "../db.js";
 import { teardownWorkflowCronsIfIdle } from "./agent-cron.js";
 import { emitEvent } from "./events.js";

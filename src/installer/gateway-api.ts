@@ -1,3 +1,12 @@
+/**
+ * OpenClaw Gateway API 客户端 — Antfarm 与 OpenClaw 平台的通信层。
+ *
+ * 所有操作（cron 管理、消息发送）都采用"HTTP 优先，CLI 回退"策略：
+ *   1. 先尝试通过 HTTP 调用 OpenClaw Gateway 的 /tools/invoke 端点
+ *   2. 如果 Gateway 不可用（404 或网络错误）→ 回退到 `openclaw` CLI
+ *
+ * 认证方式从 openclaw.json 配置读取，支持 token 和 password 两种模式。
+ */
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";

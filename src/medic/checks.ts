@@ -1,5 +1,13 @@
 /**
- * Medic health checks — modular functions that inspect DB state and return findings.
+ * Medic 健康检查模块 — 模块化的数据库状态检查函数。
+ *
+ * 检查项：
+ *   1. checkStuckSteps()    — 检测运行超时的步骤（可能被崩溃的 agent 遗弃）
+ *   2. checkStalledRuns()   — 检测长时间无进展的运行（系统性问题）
+ *   3. checkDeadRuns()      — 检测僵尸运行（所有步骤已终止但 run 仍标记为 running）
+ *   4. checkOrphanedCrons() — 检测孤儿 cron 作业（工作流无活跃运行但 cron 仍在跑）
+ *
+ * 每个检查函数返回 MedicFinding[] 数组，包含严重程度、描述和建议的修复动作。
  */
 import { getDb } from "../db.js";
 import { getMaxRoleTimeoutSeconds } from "../installer/install.js";

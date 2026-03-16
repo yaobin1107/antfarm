@@ -1,12 +1,36 @@
+/**
+ * Agent Cron 管理 — 工作流的自动轮询调度层。
+ *
+ * Antfarm 使用 OpenClaw 的 cron 工具来驱动工作流执行。每个 agent 对应一个
+ * cron 作业，定期（默认 5 分钟）触发一个轻量级的"两阶段轮询"：
+ *
+ * 阶段一（轮询）：使用廉价模型运行 `step peek`，检查是否有待处理工作。
+ *   - 无工作 → 回复 HEARTBEAT_OK → 结束（消耗极少 token）
+ *   - 有工作 → 进入阶段二
+ *
+ * 阶段二（执行）：运行 `step claim` 认领步骤，然后通过 sessions_spawn
+ *   启动一个独立的工作会话（使用配置的工作模型），执行实际任务。
+ *
+ * 这种两阶段设计大幅降低了空闲时的 token 消耗。
+ *
+ * Cron 生命周期：
+ *   - 工作流运行开始时创建（ensureWorkflowCrons）
+ *   - 运行结束且无其他活跃运行时移除（teardownWorkflowCronsIfIdle）
+ *   - 多个运行共享同一组 cron（不重复创建）
+ */
 import { createAgentCronJob, deleteAgentCronJobs, listCronJobs, checkCronToolAvailable } from "./gateway-api.js";
 import type { WorkflowSpec } from "./types.js";
 import { resolveAntfarmCli } from "./paths.js";
 import { getDb } from "../db.js";
 import { readOpenClawConfig } from "./openclaw-config.js";
 
-const DEFAULT_EVERY_MS = 300_000; // 5 minutes
-const DEFAULT_AGENT_TIMEOUT_SECONDS = 30 * 60; // 30 minutes
+const DEFAULT_EVERY_MS = 300_000; // 5 分钟轮询间隔
+const DEFAULT_AGENT_TIMEOUT_SECONDS = 30 * 60; // 30 分钟工作超时
 
+/**
+ * 构建单阶段 agent prompt（旧模式，保留供参考）。
+ * 该 prompt 指导 agent 执行：peek → claim → 执行工作 → complete/fail。
+ */
 function buildAgentPrompt(workflowId: string, agentId: string): string {
   const fullAgentId = `${workflowId}_${agentId}`;
   const cli = resolveAntfarmCli();
@@ -51,6 +75,10 @@ RULES:
 The workflow cannot advance until you report. Your session ending without reporting = broken pipeline.`;
 }
 
+/**
+ * 构建工作 prompt — 两阶段模式的第二阶段，包含完整的任务执行指令。
+ * 该 prompt 会被嵌入到 sessions_spawn 调用中，由独立的工作会话执行。
+ */
 export function buildWorkPrompt(workflowId: string, agentId: string): string {
   const fullAgentId = `${workflowId}_${agentId}`;
   const cli = resolveAntfarmCli();
@@ -125,6 +153,16 @@ async function resolveAgentCronModel(agentId: string, requestedModel?: string): 
   return requestedModel;
 }
 
+/**
+ * 构建轮询 prompt — 两阶段模式的第一阶段。
+ *
+ * 指导 agent：
+ *   1. 运行 `step peek` 轻量检查
+ *   2. 如果 NO_WORK → HEARTBEAT_OK 并结束
+ *   3. 如果 HAS_WORK → `step claim` → sessions_spawn 启动工作会话
+ *
+ * 使用廉价的轮询模型执行，避免空闲时浪费昂贵模型的 token。
+ */
 export function buildPollingPrompt(workflowId: string, agentId: string, workModel?: string): string {
   const fullAgentId = `${workflowId}_${agentId}`;
   const cli = resolveAntfarmCli();
@@ -157,6 +195,10 @@ ${workPrompt}
 Reply with a short summary of what you spawned.`;
 }
 
+/**
+ * 为工作流的所有 agent 创建 cron 轮询作业。
+ * 每个 agent 的 cron 间隔错开 1 分钟（anchorMs），避免同时触发造成竞争。
+ */
 export async function setupAgentCrons(workflow: WorkflowSpec): Promise<void> {
   const agents = workflow.agents;
   // Allow per-workflow cron interval via cron.interval_ms in workflow.yml

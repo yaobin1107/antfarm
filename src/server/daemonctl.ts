@@ -1,3 +1,9 @@
+/**
+ * Dashboard 守护进程控制器 — 管理 Dashboard 的后台生命周期。
+ *
+ * 通过 PID 文件（~/.openclaw/antfarm/dashboard.pid）跟踪进程状态。
+ * 支持启动、停止、状态查询操作。输出重定向到 dashboard.log。
+ */
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
