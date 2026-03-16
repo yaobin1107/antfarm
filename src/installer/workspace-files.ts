@@ -1,3 +1,9 @@
+/**
+ * 工作空间文件写入 — 安全地将引导文件复制到 agent 工作空间。
+ *
+ * 默认不覆盖已存在的文件（保护用户自定义修改）。
+ * 通过 overwrite 参数可强制更新。
+ */
 import fs from "node:fs/promises";
 import path from "node:path";
 

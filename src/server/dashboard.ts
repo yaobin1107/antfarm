@@ -1,3 +1,20 @@
+/**
+ * Dashboard HTTP 服务器 — 提供 Web UI 和 REST API 来监控工作流运行状态。
+ *
+ * 路由：
+ *   GET /                        → 单页 HTML 前端
+ *   GET /api/workflows           → 可用工作流列表（从 bundled workflows/ 读取）
+ *   GET /api/runs                → 所有运行记录（可选 ?workflow= 过滤）
+ *   GET /api/runs/:id            → 单个运行详情（含 steps）
+ *   GET /api/runs/:id/events     → 运行事件时间线
+ *   GET /api/runs/:id/stories    → 运行的 story 列表
+ *   GET /api/medic/status        → Medic 健康状态摘要
+ *   GET /api/medic/checks        → 最近的 Medic 检查记录
+ *   GET /fonts/*                 → 静态字体资源
+ *   GET /logo.jpeg               → Logo 图片
+ *
+ * 默认端口 3333，通过守护进程模式（daemon.ts）在后台运行。
+ */
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";

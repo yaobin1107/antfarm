@@ -1,8 +1,18 @@
+/**
+ * 工作流规范解析器 — 加载并校验 workflow.yml 文件。
+ *
+ * 校验规则：
+ *   - workflow id 不能包含下划线（下划线用作 agent namespace 分隔符）
+ *   - 所有 agent 必须有唯一 id、workspace.baseDir 和 workspace.files
+ *   - 所有 step 必须有唯一 id、agent 引用、input 模板和 expects 条件
+ *   - loop 类型的 step 必须有 loop 配置，且 verify_step 引用必须存在
+ */
 import fs from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
 import type { LoopConfig, PollingConfig, WorkflowAgent, WorkflowSpec, WorkflowStep } from "./types.js";
 
+/** 加载、解析并校验 workflow.yml 文件，返回强类型的 WorkflowSpec。 */
 export async function loadWorkflowSpec(workflowDir: string): Promise<WorkflowSpec> {
   const filePath = path.join(workflowDir, "workflow.yml");
   const raw = await fs.readFile(filePath, "utf-8");

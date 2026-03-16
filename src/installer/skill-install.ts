@@ -1,3 +1,9 @@
+/**
+ * Antfarm 技能安装 — 将 antfarm-workflows 技能部署到用户的 OpenClaw 技能目录。
+ *
+ * 技能文件（SKILL.md）提供给用户的主 agent 使用，包含工作流操作的参考文档。
+ * 安装路径：~/.openclaw/skills/antfarm-workflows/SKILL.md
+ */
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";

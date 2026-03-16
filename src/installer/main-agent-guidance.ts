@@ -1,3 +1,18 @@
+/**
+ * 主 Agent 引导文件管理 — 在用户主 agent 的 AGENTS.md 和 TOOLS.md 中注入/移除 Antfarm 操作指引。
+ *
+ * 使用 HTML 注释标记（<!-- antfarm:workflows -->）界定 Antfarm 管理的区域，
+ * 确保更新操作幂等且不会破坏用户自定义的内容。
+ */
+/**
+ * 主 Agent 指引注入 — 在用户的主 agent 工作空间中维护 Antfarm 操作说明。
+ *
+ * 安装时：在 AGENTS.md 和 TOOLS.md 中插入 <!-- antfarm:workflows --> 标记块，
+ *         包含 Antfarm CLI 命令参考和工作流操作策略。
+ * 卸载时：移除这些标记块，不影响用户自己的内容。
+ *
+ * 采用 upsert 语义：重复调用会更新而非重复追加。
+ */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { readOpenClawConfig } from "./openclaw-config.js";

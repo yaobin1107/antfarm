@@ -1,3 +1,16 @@
+/**
+ * 工作流获取器 — 从 bundled 工作流目录复制到用户安装目录。
+ *
+ * bundled 工作流位于仓库的 workflows/ 目录中。安装时完整复制到
+ * ~/.openclaw/antfarm/workflows/<id>/ 目录下。
+ */
+/**
+ * 工作流获取 — 将 bundled workflows 从仓库目录复制到用户安装目录。
+ *
+ * Antfarm 内置的工作流定义位于源码仓库的 workflows/ 目录下。
+ * fetchWorkflow() 将指定工作流完整复制到 ~/.openclaw/antfarm/workflows/<id>/，
+ * 使后续的解析和安装操作始终读取独立副本而非仓库源文件。
+ */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { resolveBundledWorkflowDir, resolveBundledWorkflowsDir, resolveWorkflowDir, resolveWorkflowRoot } from "./paths.js";

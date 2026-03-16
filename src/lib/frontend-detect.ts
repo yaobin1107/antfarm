@@ -1,6 +1,9 @@
 /**
- * Detects whether a set of changed files includes frontend-related changes.
- * Used by verify/review steps to conditionally add browser-based visual inspection.
+ * 前端变更检测器 — 判断一组文件变更是否涉及前端代码。
+ *
+ * 用于 verify / review 步骤中条件性地触发浏览器视觉检查。
+ * 检测依据：文件扩展名（.html .css .jsx .tsx .vue .svelte）和目录名（components/ pages/ 等）。
+ * 忽略测试文件（.test. .spec. __tests__/），因为测试文件的变更不需要视觉验证。
  */
 
 const FRONTEND_EXTENSIONS = new Set([
