@@ -211,7 +211,6 @@ export async function setupAgentCrons(workflow: WorkflowSpec): Promise<void> {
 
   // Resolve polling model: per-agent > workflow-level > default
   const workflowPollingModel = workflow.polling?.model ?? DEFAULT_POLLING_MODEL;
-  const workflowWorkModel = workflow.working?.model ?? DEFAULT_POLLING_MODEL;
   const workflowPollingTimeout = workflow.polling?.timeoutSeconds ?? DEFAULT_POLLING_TIMEOUT_SECONDS;
 
   for (let i = 0; i < agents.length; i++) {
@@ -223,7 +222,7 @@ export async function setupAgentCrons(workflow: WorkflowSpec): Promise<void> {
     // Two-phase: Phase 1 uses cheap polling model + minimal prompt
     const requestedPollingModel = agent.pollingModel ?? workflowPollingModel;
     const pollingModel = await resolveAgentCronModel(agentId, requestedPollingModel);
-    const requestedWorkModel = agent.model ?? workflowWorkModel;
+    const requestedWorkModel = agent.model ?? workflowPollingModel;
     const workModel = await resolveAgentCronModel(agentId, requestedWorkModel);
     const prompt = buildPollingPrompt(workflow.id, agent.id, workModel);
     const timeoutSeconds = workflowPollingTimeout;
