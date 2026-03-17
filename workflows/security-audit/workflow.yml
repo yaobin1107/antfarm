@@ -96,6 +96,7 @@ agents:
 steps:
   - id: scan
     agent: scanner
+    model: bailian/qwen3-coder-plus    # Tier 3: 安全扫描需要深度理解代码模式
     input: |
       Perform a comprehensive security audit of the codebase.
 
@@ -135,6 +136,7 @@ steps:
 
   - id: prioritize
     agent: prioritizer
+    model: bailian/qwen3-coder-plus    # Tier 3: 漏洞排序和修复规划需要深度推理
     input: |
       Prioritize and group the security findings into a fix plan.
 
@@ -174,6 +176,7 @@ steps:
 
   - id: setup
     agent: setup
+    model: bailian/qwen3.5-plus        # Tier 2: 环境准备是机械性操作
     input: |
       Prepare the environment for security fixes.
 
@@ -199,6 +202,7 @@ steps:
 
   - id: fix
     agent: fixer
+    model: bailian/qwen3-coder-plus    # Tier 3: 安全修复需要最强编码能力
     type: loop
     loop:
       over: stories
@@ -252,6 +256,7 @@ steps:
 
   - id: verify
     agent: verifier
+    model: bailian/qwen3.5-plus        # Tier 2: 验证是检查清单操作
     input: |
       Verify the security fix is correct and the vulnerability is patched.
 
@@ -299,6 +304,7 @@ steps:
 
   - id: test
     agent: tester
+    model: bailian/qwen3.5-plus        # Tier 2: 运行测试是执行性任务
     input: |
       Final integration testing after all security fixes.
 
@@ -341,6 +347,7 @@ steps:
 
   - id: pr
     agent: pr
+    model: bailian/qwen3.5-plus        # Tier 2: PR 创建不需要深度编码
     input: |
       Create a pull request for the security fixes.
 

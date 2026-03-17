@@ -96,7 +96,7 @@ agents:
 steps:
   - id: plan
     agent: planner
-    model: bailian/qwen3.5-plus
+    model: bailian/qwen3-coder-plus    # Tier 3: 任务分解需要深度理解代码库
     input: |
       Decompose the following task into ordered user stories for autonomous execution.
 
@@ -125,7 +125,7 @@ steps:
 
   - id: setup
     agent: setup
-    model: bailian/qwen3.5-plus
+    model: bailian/qwen3.5-plus        # Tier 2: 环境准备是机械性操作
     input: |
       Prepare the development environment for this feature.
 
@@ -157,7 +157,7 @@ steps:
 
   - id: implement
     agent: developer
-    model: bailian/qwen3-coder-plus
+    model: bailian/qwen3-coder-plus    # Tier 3: 代码实现需要最强编码能力
     type: loop
     loop:
       over: stories
@@ -212,7 +212,7 @@ steps:
 
   - id: verify
     agent: verifier
-    model: bailian/qwen3-coder-plus
+    model: bailian/qwen3.5-plus        # Tier 2: 验证是检查清单，不需要最强推理
     input: |
       Verify the developer's work on this story.
 
@@ -274,7 +274,7 @@ steps:
 
   - id: test
     agent: tester
-    model: bailian/qwen3-coder-plus
+    model: bailian/qwen3.5-plus        # Tier 2: 运行测试是执行性任务
     input: |
       Integration and E2E testing of the implementation.
 
@@ -314,7 +314,7 @@ steps:
 
   - id: pr
     agent: developer
-    model: bailian/qwen3-coder-plus
+    model: bailian/qwen3.5-plus        # Tier 2: PR 创建不需要深度编码能力
     input: |
       Create a pull request for your changes.
 
@@ -345,7 +345,7 @@ steps:
 
   - id: review
     agent: reviewer
-    model: bailian/qwen3-coder-plus
+    model: bailian/qwen3-coder-plus    # Tier 3: 代码审查需要深入理解代码
     input: |
       Review the pull request.
 

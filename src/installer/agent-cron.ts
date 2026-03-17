@@ -162,11 +162,16 @@ async function resolveAgentCronModel(agentId: string, requestedModel?: string): 
  *   3. 如果 HAS_WORK → `step claim` → sessions_spawn 启动工作会话
  *
  * 使用廉价的轮询模型执行，避免空闲时浪费昂贵模型的 token。
+ *
+ * 模型选择策略（三级优先级）：
+ *   claim JSON 中的 model 字段 → fallbackWorkModel 参数 → "default"
+ *   这允许每个 step 在 workflow.yml 中指定不同的模型，
+ *   例如 plan/implement/review 用强模型，setup/pr 用标准模型。
  */
-export function buildPollingPrompt(workflowId: string, agentId: string, workModel?: string): string {
+export function buildPollingPrompt(workflowId: string, agentId: string, fallbackWorkModel?: string): string {
   const fullAgentId = `${workflowId}_${agentId}`;
   const cli = resolveAntfarmCli();
-  const model = workModel ?? "default";
+  const defaultModel = fallbackWorkModel ?? "default";
   const workPrompt = buildWorkPrompt(workflowId, agentId);
 
   return `Step 1 — Quick check for pending work (lightweight, no side effects):
@@ -181,10 +186,10 @@ node ${cli} step claim "${fullAgentId}"
 \`\`\`
 If output is "NO_WORK", reply HEARTBEAT_OK and stop.
 
-If JSON is returned, parse it to extract stepId, runId, and input fields.
+If JSON is returned, parse it to extract stepId, runId, input, and optional model fields.
 Then call sessions_spawn with these parameters:
 - agentId: "${fullAgentId}"
-- model: "${model}"
+- model: Use the "model" field from the claim JSON if present; otherwise use "${defaultModel}"
 - task: The full work prompt below, followed by "\\n\\nCLAIMED STEP JSON:\\n" and the exact JSON output from step claim.
 
 Full work prompt to include in the spawned task:

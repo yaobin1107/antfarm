@@ -501,6 +501,8 @@ interface ClaimResult {
   stepId?: string;
   runId?: string;
   resolvedInput?: string;
+  /** 该步骤应使用的模型（step.model → agent.model → working.model），供 sessions_spawn 使用 */
+  model?: string;
 }
 
 /**
@@ -532,7 +534,7 @@ export function claimStep(agentId: string): ClaimResult {
   const db = getDb();
 
   const step = db.prepare(
-    `SELECT s.id, s.step_id, s.run_id, s.input_template, s.type, s.loop_config, s.step_index
+    `SELECT s.id, s.step_id, s.run_id, s.input_template, s.type, s.loop_config, s.step_index, s.model
      FROM steps s
      JOIN runs r ON r.id = s.run_id
      WHERE s.agent_id = ? AND s.status = 'pending'
@@ -549,6 +551,7 @@ export function claimStep(agentId: string): ClaimResult {
     id: string; step_id: string; run_id: string; input_template: string; type: string;
     loop_config: string | null;
     step_index: number;
+    model: string | null;
   } | undefined;
 
   if (!step) return { found: false };
@@ -676,7 +679,7 @@ export function claimStep(agentId: string): ClaimResult {
       db.prepare("UPDATE runs SET context = ?, updated_at = datetime('now') WHERE id = ?").run(JSON.stringify(context), step.run_id);
 
       const resolvedInput = resolveTemplate(step.input_template, context);
-      return { found: true, stepId: step.id, runId: step.run_id, resolvedInput };
+      return { found: true, stepId: step.id, runId: step.run_id, resolvedInput, model: step.model ?? undefined };
     }
   }
 
@@ -708,6 +711,7 @@ export function claimStep(agentId: string): ClaimResult {
     stepId: step.id,
     runId: step.run_id,
     resolvedInput,
+    model: step.model ?? undefined,
   };
 }
 

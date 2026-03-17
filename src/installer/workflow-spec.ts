@@ -33,7 +33,7 @@ export async function loadWorkflowSpec(workflowDir: string): Promise<WorkflowSpe
     validatePollingConfig(parsed.polling, workflowDir);
   }
   validateAgents(parsed.agents, workflowDir);
-  // Parse type/loop from raw YAML before validation
+  // Parse type/loop/model from raw YAML before validation
   for (const step of parsed.steps) {
     const rawStep = step as any;
     if (rawStep.type) {
@@ -41,6 +41,9 @@ export async function loadWorkflowSpec(workflowDir: string): Promise<WorkflowSpe
     }
     if (rawStep.loop) {
       step.loop = parseLoopConfig(rawStep.loop);
+    }
+    if (rawStep.model) {
+      step.model = rawStep.model;
     }
   }
   validateSteps(parsed.steps, workflowDir);
