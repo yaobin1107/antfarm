@@ -74,6 +74,8 @@ agents:
     model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/tester
+      skills:
+        - agent-browser
       files:
         AGENTS.md: agents/tester/AGENTS.md
         SOUL.md: agents/tester/SOUL.md
@@ -340,6 +342,7 @@ steps:
       STATUS: done
       PR: URL to the pull request
     expects: "STATUS: done"
+    max_retries: 2
     on_fail:
       escalate_to: human
 

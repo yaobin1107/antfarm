@@ -20,6 +20,7 @@ agents:
     name: Triager
     role: analysis
     description: Analyzes bug reports, reproduces issues, classifies severity.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/triager
       files:
@@ -31,6 +32,7 @@ agents:
     name: Investigator
     role: analysis
     description: Traces bugs to root cause and proposes fix approach.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/investigator
       files:
@@ -42,6 +44,7 @@ agents:
     name: Setup
     role: coding
     description: Creates bugfix branch and establishes baseline.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/setup
       files:
@@ -53,6 +56,7 @@ agents:
     name: Fixer
     role: coding
     description: Implements the fix and writes regression tests.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/fixer
       files:
@@ -64,6 +68,7 @@ agents:
     name: Verifier
     role: verification
     description: Verifies the fix and regression test correctness.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/verifier
       files:
@@ -75,6 +80,7 @@ agents:
     name: PR Creator
     role: pr
     description: Creates a pull request with bug fix details.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/pr
       files:
@@ -203,7 +209,7 @@ steps:
       CHANGES: what was changed
       REGRESSION_TEST: what test was added
     expects: "STATUS: done"
-    max_retries: 2
+    max_retries: 3
     on_fail:
       escalate_to: human
 
