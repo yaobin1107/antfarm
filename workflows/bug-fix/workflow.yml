@@ -9,7 +9,7 @@ description: |
   PR agent creates the pull request.
 
 polling:
-  model: bailian/qwen3-max-2026-01-23    # 默认心跳模型
+  model: aliyun/qwen1.5-72b-chat   # 默认心跳模型
   timeoutSeconds: 120
 
 agents:
