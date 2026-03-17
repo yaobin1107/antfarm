@@ -17,6 +17,7 @@ agents:
     name: Scanner
     role: scanning
     description: Explores codebase and runs comprehensive security analysis.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/scanner
       files:
@@ -28,6 +29,7 @@ agents:
     name: Prioritizer
     role: analysis
     description: Deduplicates, ranks, and groups findings into a fix plan.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/prioritizer
       files:
@@ -39,6 +41,7 @@ agents:
     name: Setup
     role: coding
     description: Creates security branch and establishes baseline.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/setup
       files:
@@ -50,6 +53,7 @@ agents:
     name: Fixer
     role: coding
     description: Implements security fixes one at a time with regression tests.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/fixer
       files:
@@ -61,6 +65,7 @@ agents:
     name: Verifier
     role: verification
     description: Verifies each fix is correct and the vulnerability is patched.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/verifier
       files:
@@ -72,6 +77,7 @@ agents:
     name: Tester
     role: testing
     description: Final integration testing and audit re-run after all fixes.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/tester
       files:
@@ -83,6 +89,7 @@ agents:
     name: PR Creator
     role: pr
     description: Creates a pull request summarizing the security audit and fixes.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/pr
       files:
@@ -181,8 +188,9 @@ steps:
       1. cd into the repo
       2. Create the security branch (git checkout -b {{branch}} from main)
       3. Read package.json, CI config, test config to understand build/test setup
-      4. Run the build to establish a baseline
-      5. Run the tests to establish a baseline
+      4. Ensure .gitignore exists — if missing, create one appropriate for the detected stack (must include .env, node_modules/, *.key, *.pem at minimum)
+      5. Run the build to establish a baseline
+      6. Run the tests to establish a baseline
 
       Reply with:
       STATUS: done
