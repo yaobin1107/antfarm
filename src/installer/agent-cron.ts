@@ -91,14 +91,17 @@ The claimed step JSON is provided below. It contains: {"stepId": "...", "runId":
 Save the stepId — you'll need it to report completion.
 The "input" field contains your FULLY RESOLVED task instructions. Read it carefully and DO the work.
 
-Do the work described in the input. Format your output with KEY: value lines as specified.
+## Output Format
+Your output MUST use the EXACT KEY: value format specified in the input instructions.
+Include ALL requested keys — the workflow depends on them for subsequent steps.
+Do NOT wrap values in markdown code blocks (\`\`\`). Write raw values directly after each KEY:.
+If a key's value is JSON (like STORIES_JSON), put the raw JSON directly after the colon, NOT inside code fences.
 
-MANDATORY: Report completion (do this IMMEDIATELY after finishing the work):
+## Reporting Completion
+Write ALL your output keys to a file first, then pipe to step complete:
 \`\`\`
 cat <<'ANTFARM_EOF' > /tmp/antfarm-step-output.txt
-STATUS: done
-CHANGES: what you did
-TESTS: what tests you ran
+<your KEY: value lines here, exactly as the input instructions specify>
 ANTFARM_EOF
 cat /tmp/antfarm-step-output.txt | node ${cli} step complete "<stepId>"
 \`\`\`
@@ -111,7 +114,8 @@ node ${cli} step fail "<stepId>" "description of what went wrong"
 RULES:
 1. NEVER end your session without calling step complete or step fail
 2. Write output to a file first, then pipe via stdin (shell escaping breaks direct args)
-3. If you're unsure whether to complete or fail, call step fail with an explanation
+3. Include EVERY key the input instructions ask for — missing keys break the pipeline
+4. If you're unsure whether to complete or fail, call step fail with an explanation
 
 The workflow cannot advance until you report. Your session ending without reporting = broken pipeline.`;
 }
