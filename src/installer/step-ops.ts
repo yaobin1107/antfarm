@@ -240,6 +240,12 @@ function formatCompletedStories(stories: Story[]): string {
 
 /**
  * Parse STORIES_JSON from step output and insert stories into the DB.
+ *
+ * 支持多种 AI 模型输出格式：
+ *   - STORIES_JSON: [...]              （同行内联）
+ *   - STORIES_JSON:\n[...]             （下一行开始）
+ *   - STORIES_JSON:\n```json\n[...]\n```  （markdown 代码块包裹）
+ *   - STORIES_JSON: [\n  {...}\n]      （多行 pretty-print）
  */
 function parseAndInsertStories(output: string, runId: string): void {
   const lines = output.split("\n");
@@ -254,7 +260,10 @@ function parseAndInsertStories(output: string, runId: string): void {
     jsonLines.push(lines[i]);
   }
 
-  const jsonText = jsonLines.join("\n").trim();
+  // Strip markdown code block wrappers (```json ... ``` or ``` ... ```)
+  // LLMs frequently wrap JSON output in code blocks
+  let jsonText = jsonLines.join("\n").trim();
+  jsonText = jsonText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/, "").trim();
   let stories: any[];
   try {
     stories = JSON.parse(jsonText);
@@ -750,7 +759,23 @@ export function completeStep(stepId: string, output: string): { advanced: boolea
   ).run(JSON.stringify(context), step.run_id);
 
   // T5: Parse STORIES_JSON from output (any step, typically the planner)
-  parseAndInsertStories(output, step.run_id);
+  try {
+    parseAndInsertStories(output, step.run_id);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`STORIES_JSON parsing failed: ${message}`, { runId: step.run_id, stepId: step.step_id });
+    // Fail the step and run — stories are required for loop steps to proceed
+    db.prepare(
+      "UPDATE steps SET status = 'failed', output = ?, updated_at = datetime('now') WHERE id = ?"
+    ).run(`STORIES_JSON parsing failed: ${message}`, stepId);
+    db.prepare(
+      "UPDATE runs SET status = 'failed', updated_at = datetime('now') WHERE id = ?"
+    ).run(step.run_id);
+    emitEvent({ ts: new Date().toISOString(), event: "step.failed", runId: step.run_id, workflowId: getWorkflowId(step.run_id), stepId: step.step_id, detail: `STORIES_JSON parsing failed: ${message}` });
+    emitEvent({ ts: new Date().toISOString(), event: "run.failed", runId: step.run_id, workflowId: getWorkflowId(step.run_id), detail: `STORIES_JSON parsing failed: ${message}` });
+    scheduleRunCronTeardown(step.run_id);
+    return { advanced: false, runCompleted: false };
+  }
 
   // T7: Loop step completion
   if (step.type === "loop" && step.current_story_id) {
