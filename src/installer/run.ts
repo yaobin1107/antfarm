@@ -53,8 +53,15 @@ export async function runWorkflow(params: {
     insertRun.run(runId, runNumber, workflow.id, params.taskTitle, JSON.stringify(initialContext), notifyUrl, now, now);
 
     const insertStep = db.prepare(
-      "INSERT INTO steps (id, run_id, step_id, agent_id, step_index, input_template, expects, status, max_retries, type, loop_config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO steps (id, run_id, step_id, agent_id, step_index, input_template, expects, status, max_retries, type, loop_config, model, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
+
+    // Build agent model lookup for step.model fallback resolution
+    const agentModelMap = new Map<string, string | undefined>();
+    for (const agent of workflow.agents) {
+      agentModelMap.set(agent.id, agent.model);
+    }
+    const workflowWorkModel = workflow.working?.model ?? null;
 
     for (let i = 0; i < workflow.steps.length; i++) {
       const step = workflow.steps[i];
@@ -64,7 +71,9 @@ export async function runWorkflow(params: {
       const maxRetries = step.max_retries ?? step.on_fail?.max_retries ?? 2;
       const stepType = step.type ?? "single";
       const loopConfig = step.loop ? JSON.stringify(step.loop) : null;
-      insertStep.run(stepUuid, runId, step.id, agentId, i, step.input, step.expects, status, maxRetries, stepType, loopConfig, now, now);
+      // Model priority: step.model → agent.model → workflow.working.model → null
+      const stepModel = step.model ?? agentModelMap.get(step.agent) ?? workflowWorkModel ?? null;
+      insertStep.run(stepUuid, runId, step.id, agentId, i, step.input, step.expects, status, maxRetries, stepType, loopConfig, stepModel, now, now);
     }
 
     db.exec("COMMIT");

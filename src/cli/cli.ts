@@ -404,7 +404,9 @@ async function main() {
       if (!result.found) {
         process.stdout.write("NO_WORK\n");
       } else {
-        process.stdout.write(JSON.stringify({ stepId: result.stepId, runId: result.runId, input: result.resolvedInput }) + "\n");
+        const output: Record<string, unknown> = { stepId: result.stepId, runId: result.runId, input: result.resolvedInput };
+        if (result.model) output.model = result.model;
+        process.stdout.write(JSON.stringify(output) + "\n");
       }
       return;
     }

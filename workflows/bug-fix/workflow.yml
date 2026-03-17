@@ -85,6 +85,7 @@ agents:
 steps:
   - id: triage
     agent: triager
+    model: bailian/qwen3-coder-plus    # Tier 3: 复现和分类需要深度理解代码
     input: |
       Triage the following bug report. Explore the codebase, reproduce the issue, and classify severity.
 
@@ -113,6 +114,7 @@ steps:
 
   - id: investigate
     agent: investigator
+    model: bailian/qwen3-coder-plus    # Tier 3: 根因分析需要深度推理
     input: |
       Investigate the root cause of this bug.
 
@@ -142,6 +144,7 @@ steps:
 
   - id: setup
     agent: setup
+    model: bailian/qwen3.5-plus        # Tier 2: 环境准备是机械性操作
     input: |
       Prepare the environment for the bugfix.
 
@@ -168,6 +171,7 @@ steps:
 
   - id: fix
     agent: fixer
+    model: bailian/qwen3-coder-plus    # Tier 3: Bug 修复需要最强编码能力
     input: |
       Implement the bug fix.
 
@@ -205,6 +209,7 @@ steps:
 
   - id: verify
     agent: verifier
+    model: bailian/qwen3.5-plus        # Tier 2: 验证是检查清单操作
     input: |
       Verify the bug fix is correct and complete.
 
@@ -255,6 +260,7 @@ steps:
 
   - id: pr
     agent: pr
+    model: bailian/qwen3.5-plus        # Tier 2: PR 创建不需要深度编码
     input: |
       Create a pull request for the bug fix.
 

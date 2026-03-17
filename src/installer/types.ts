@@ -67,6 +67,8 @@ export type WorkflowStep = {
   agent: string;
   type?: "single" | "loop";
   loop?: LoopConfig;
+  /** 步骤级模型覆盖。优先级：step.model → agent.model → working.model → "default" */
+  model?: string;
   input: string;
   expects: string;
   max_retries?: number;
