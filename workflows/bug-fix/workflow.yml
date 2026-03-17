@@ -252,7 +252,7 @@ steps:
     expects: "STATUS: done"
     on_fail:
       retry_step: fix
-      max_retries: 3
+      max_retries: 2
       on_exhausted:
         escalate_to: human
 
