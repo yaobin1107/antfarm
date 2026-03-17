@@ -117,11 +117,7 @@ The workflow cannot advance until you report. Your session ending without report
 }
 
 const DEFAULT_POLLING_TIMEOUT_SECONDS = 120;
-/**
- * 默认模型标记。值为 undefined 表示"不指定模型，让 OpenClaw 使用全局默认"。
- * 之前使用 "default" 字符串会导致 OpenClaw 尝试解析 "anthropic/default" 而报错。
- */
-const DEFAULT_POLLING_MODEL: string | undefined = undefined;
+const DEFAULT_POLLING_MODEL = "default";
 
 function extractModel(value: unknown): string | undefined {
   if (!value) return undefined;
@@ -133,36 +129,28 @@ function extractModel(value: unknown): string | undefined {
   return undefined;
 }
 
-/**
- * 解析 agent 的 cron 模型。
- * 优先级：显式请求 → openclaw.json agent 配置 → openclaw.json defaults → undefined（让 OpenClaw 选默认）。
- * 值 "default" 被视为"未指定"，等同于 undefined。
- */
 async function resolveAgentCronModel(agentId: string, requestedModel?: string): Promise<string | undefined> {
-  // 如果有明确的模型名（非 "default"），直接使用
   if (requestedModel && requestedModel !== "default") {
     return requestedModel;
   }
 
-  // 尝试从 openclaw.json 读取该 agent 或全局默认的模型配置
   try {
     const { config } = await readOpenClawConfig();
     const agents = config.agents?.list;
     if (Array.isArray(agents)) {
       const entry = agents.find((a: any) => a?.id === agentId);
       const configured = extractModel(entry?.model);
-      if (configured && configured !== "default") return configured;
+      if (configured) return configured;
     }
 
     const defaults = config.agents?.defaults;
     const fallback = extractModel(defaults?.model);
-    if (fallback && fallback !== "default") return fallback;
+    if (fallback) return fallback;
   } catch {
     // best-effort — fallback below
   }
 
-  // 返回 undefined 而非 "default"，让 OpenClaw 使用其全局默认模型
-  return undefined;
+  return requestedModel;
 }
 
 /**
@@ -183,12 +171,8 @@ async function resolveAgentCronModel(agentId: string, requestedModel?: string): 
 export function buildPollingPrompt(workflowId: string, agentId: string, fallbackWorkModel?: string): string {
   const fullAgentId = `${workflowId}_${agentId}`;
   const cli = resolveAntfarmCli();
+  const defaultModel = fallbackWorkModel ?? "default";
   const workPrompt = buildWorkPrompt(workflowId, agentId);
-
-  // 构建模型指令：优先用 claim JSON 中的 model，其次用 fallback，都没有则不指定
-  const modelInstruction = fallbackWorkModel
-    ? `- model: Use the "model" field from the claim JSON if present; otherwise use "${fallbackWorkModel}"`
-    : `- model: Use the "model" field from the claim JSON if present; otherwise omit the model parameter (let OpenClaw use its default)`;
 
   return `Step 1 — Quick check for pending work (lightweight, no side effects):
 \`\`\`
@@ -205,7 +189,7 @@ If output is "NO_WORK", reply HEARTBEAT_OK and stop.
 If JSON is returned, parse it to extract stepId, runId, input, and optional model fields.
 Then call sessions_spawn with these parameters:
 - agentId: "${fullAgentId}"
-${modelInstruction}
+- model: Use the "model" field from the claim JSON if present; otherwise use "${defaultModel}"
 - task: The full work prompt below, followed by "\\n\\nCLAIMED STEP JSON:\\n" and the exact JSON output from step claim.
 
 Full work prompt to include in the spawned task:
@@ -243,20 +227,12 @@ export async function setupAgentCrons(workflow: WorkflowSpec): Promise<void> {
     const prompt = buildPollingPrompt(workflow.id, agent.id, workModel);
     const timeoutSeconds = workflowPollingTimeout;
 
-    const payload: { kind: string; message: string; model?: string; timeoutSeconds?: number } = {
-      kind: "agentTurn",
-      message: prompt,
-      timeoutSeconds,
-    };
-    // 仅当有明确模型时才传 model 字段，避免传 "default" 导致 OpenClaw 报错
-    if (pollingModel) payload.model = pollingModel;
-
     const result = await createAgentCronJob({
       name: cronName,
       schedule: { kind: "every", everyMs, anchorMs },
       sessionTarget: "isolated",
       agentId,
-      payload,
+      payload: { kind: "agentTurn", message: prompt, model: pollingModel, timeoutSeconds },
       delivery: { mode: "none" },
       enabled: true,
     });
