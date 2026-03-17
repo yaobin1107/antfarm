@@ -116,7 +116,7 @@ RULES:
 The workflow cannot advance until you report. Your session ending without reporting = broken pipeline.`;
 }
 
-const DEFAULT_POLLING_TIMEOUT_SECONDS = 10000;
+const DEFAULT_POLLING_TIMEOUT_SECONDS = 120;
 const DEFAULT_POLLING_MODEL = "default";
 
 function extractModel(value: unknown): string | undefined {
