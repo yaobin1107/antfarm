@@ -1,3 +1,31 @@
+/**
+ * Agent 工作空间供给器 — 为工作流中的每个 agent 创建隔离的工作环境。
+ *
+ * 每个 agent 获得：
+ *   1. 工作空间目录（~/.openclaw/workspaces/workflows/<workflow>/<agent>/）
+ *      包含 AGENTS.md、SOUL.md、IDENTITY.md 等引导文件
+ *   2. Agent 配置目录（~/.openclaw/agents/<workflow_agent>/agent/）
+ *      用于 OpenClaw 的 agent 元数据
+ *   3. 可选的 skills/ 目录，包含 bundled 和 external 技能
+ */
+/**
+ * Agent 配置（Provisioning）— 为每个工作流 agent 创建工作空间和引导文件。
+ *
+ * 工作空间布局（以 feature-dev 为例）：
+ *   ~/.openclaw/workspaces/workflows/feature-dev/
+ *     ├─ agents/planner/         planner 的工作空间
+ *     │   ├─ AGENTS.md           agent 的行为规范
+ *     │   ├─ SOUL.md             agent 的角色人格
+ *     │   └─ IDENTITY.md         agent 的身份描述
+ *     ├─ agents/developer/       developer 的工作空间
+ *     │   ├─ AGENTS.md
+ *     │   ├─ SOUL.md
+ *     │   ├─ IDENTITY.md
+ *     │   └─ skills/             技能目录
+ *     └─ ...
+ *
+ * 同时为每个 agent 创建 OpenClaw agent 目录（~/.openclaw/agents/<id>/agent/）。
+ */
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { WorkflowAgent, WorkflowSpec } from "./types.js";

@@ -1,3 +1,10 @@
+/**
+ * CLI 符号链接管理 — 确保 `antfarm` 命令在 PATH 中可用。
+ *
+ * 在 ~/.local/bin/ 创建指向 dist/cli/cli.js 的符号链接。
+ * 幂等操作：重复调用跳过已正确的链接，更新过时的链接，
+ * 不覆盖用户手动创建的非符号链接文件。
+ */
 import { existsSync, mkdirSync, symlinkSync, unlinkSync, readlinkSync, lstatSync } from "fs";
 import { join } from "path";
 import { fileURLToPath } from "url";

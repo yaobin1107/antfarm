@@ -1,6 +1,21 @@
 #!/usr/bin/env node
+/**
+ * Antfarm CLI 入口 — 多 Agent 工作流编排的命令行界面。
+ *
+ * 本文件是 antfarm 的主入口，负责解析用户命令并路由到对应的模块。
+ * 支持的顶层命令组：
+ *   - install / uninstall  — 工作流生命周期管理
+ *   - workflow              — 工作流运行、状态查询、恢复、停止
+ *   - step                  — 底层步骤操作（peek / claim / complete / fail），供 cron agent 使用
+ *   - dashboard             — Web 监控面板守护进程管理
+ *   - medic                 — 健康看门狗（检测卡住/僵死的运行并自动修复）
+ *   - logs                  — 查看事件日志
+ *   - update                — 自动拉取最新代码并重新构建
+ *
+ * 运行时依赖 Node.js >= 22 的原生 node:sqlite 模块。
+ */
 
-// Runtime check: node:sqlite requires Node.js >= 22 (real Node, not Bun's wrapper)
+// 运行时检查：node:sqlite 需要真正的 Node.js >= 22（不兼容 Bun 的 node 包装器）
 try {
   await import("node:sqlite");
 } catch {
@@ -36,6 +51,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const pkgPath = join(__dirname, "..", "..", "package.json");
 
+/** 从 package.json 中读取当前安装版本号。 */
 function getVersion(): string {
   try {
     const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
@@ -45,11 +61,13 @@ function getVersion(): string {
   }
 }
 
+/** 将 ISO 时间戳格式化为本地时分（AM/PM），用于事件日志显示。 */
 function formatEventTime(ts: string): string {
   const d = new Date(ts);
   return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
+/** 将事件类型枚举映射为人类可读的中文/英文标签。 */
 function formatEventLabel(evt: AntfarmEvent): string {
   const labels: Record<string, string> = {
     "run.started": "Run started",
@@ -70,6 +88,7 @@ function formatEventLabel(evt: AntfarmEvent): string {
   return labels[evt.event] ?? evt.event;
 }
 
+/** 将事件数组按时间线格式输出到控制台。 */
 function printEvents(events: AntfarmEvent[]): void {
   if (events.length === 0) { console.log("No events yet."); return; }
   for (const evt of events) {
@@ -83,6 +102,7 @@ function printEvents(events: AntfarmEvent[]): void {
   }
 }
 
+/** 输出 CLI 帮助文本（所有可用命令及说明）。 */
 function printUsage() {
   process.stdout.write(
     [
@@ -125,6 +145,15 @@ function printUsage() {
   );
 }
 
+/**
+ * CLI 主函数 — 解析 argv 并分派到对应的子命令。
+ *
+ * 命令路由采用 "group / action / target" 三层结构：
+ *   antfarm <group> [action] [target] [...args]
+ *
+ * 特殊顶层命令（不需要 group/action）：
+ *   version, update, install, uninstall, ant
+ */
 async function main() {
   const args = process.argv.slice(2);
   const [group, action, target] = args;
@@ -375,7 +404,9 @@ async function main() {
       if (!result.found) {
         process.stdout.write("NO_WORK\n");
       } else {
-        process.stdout.write(JSON.stringify({ stepId: result.stepId, runId: result.runId, input: result.resolvedInput }) + "\n");
+        const output: Record<string, unknown> = { stepId: result.stepId, runId: result.runId, input: result.resolvedInput };
+        if (result.model) output.model = result.model;
+        process.stdout.write(JSON.stringify(output) + "\n");
       }
       return;
     }

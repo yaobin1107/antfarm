@@ -1,12 +1,36 @@
+/**
+ * Agent Cron 管理 — 工作流的自动轮询调度层。
+ *
+ * Antfarm 使用 OpenClaw 的 cron 工具来驱动工作流执行。每个 agent 对应一个
+ * cron 作业，定期（默认 5 分钟）触发一个轻量级的"两阶段轮询"：
+ *
+ * 阶段一（轮询）：使用廉价模型运行 `step peek`，检查是否有待处理工作。
+ *   - 无工作 → 回复 HEARTBEAT_OK → 结束（消耗极少 token）
+ *   - 有工作 → 进入阶段二
+ *
+ * 阶段二（执行）：运行 `step claim` 认领步骤，然后通过 sessions_spawn
+ *   启动一个独立的工作会话（使用配置的工作模型），执行实际任务。
+ *
+ * 这种两阶段设计大幅降低了空闲时的 token 消耗。
+ *
+ * Cron 生命周期：
+ *   - 工作流运行开始时创建（ensureWorkflowCrons）
+ *   - 运行结束且无其他活跃运行时移除（teardownWorkflowCronsIfIdle）
+ *   - 多个运行共享同一组 cron（不重复创建）
+ */
 import { createAgentCronJob, deleteAgentCronJobs, listCronJobs, checkCronToolAvailable } from "./gateway-api.js";
 import type { WorkflowSpec } from "./types.js";
 import { resolveAntfarmCli } from "./paths.js";
 import { getDb } from "../db.js";
 import { readOpenClawConfig } from "./openclaw-config.js";
 
-const DEFAULT_EVERY_MS = 300_000; // 5 minutes
-const DEFAULT_AGENT_TIMEOUT_SECONDS = 30 * 60; // 30 minutes
+const DEFAULT_EVERY_MS = 300_000; // 5 分钟轮询间隔
+const DEFAULT_AGENT_TIMEOUT_SECONDS = 30 * 60; // 30 分钟工作超时
 
+/**
+ * 构建单阶段 agent prompt（旧模式，保留供参考）。
+ * 该 prompt 指导 agent 执行：peek → claim → 执行工作 → complete/fail。
+ */
 function buildAgentPrompt(workflowId: string, agentId: string): string {
   const fullAgentId = `${workflowId}_${agentId}`;
   const cli = resolveAntfarmCli();
@@ -51,6 +75,10 @@ RULES:
 The workflow cannot advance until you report. Your session ending without reporting = broken pipeline.`;
 }
 
+/**
+ * 构建工作 prompt — 两阶段模式的第二阶段，包含完整的任务执行指令。
+ * 该 prompt 会被嵌入到 sessions_spawn 调用中，由独立的工作会话执行。
+ */
 export function buildWorkPrompt(workflowId: string, agentId: string): string {
   const fullAgentId = `${workflowId}_${agentId}`;
   const cli = resolveAntfarmCli();
@@ -63,14 +91,17 @@ The claimed step JSON is provided below. It contains: {"stepId": "...", "runId":
 Save the stepId — you'll need it to report completion.
 The "input" field contains your FULLY RESOLVED task instructions. Read it carefully and DO the work.
 
-Do the work described in the input. Format your output with KEY: value lines as specified.
+## Output Format
+Your output MUST use the EXACT KEY: value format specified in the input instructions.
+Include ALL requested keys — the workflow depends on them for subsequent steps.
+Do NOT wrap values in markdown code blocks (\`\`\`). Write raw values directly after each KEY:.
+If a key's value is JSON (like STORIES_JSON), put the raw JSON directly after the colon, NOT inside code fences.
 
-MANDATORY: Report completion (do this IMMEDIATELY after finishing the work):
+## Reporting Completion
+Write ALL your output keys to a file first, then pipe to step complete:
 \`\`\`
 cat <<'ANTFARM_EOF' > /tmp/antfarm-step-output.txt
-STATUS: done
-CHANGES: what you did
-TESTS: what tests you ran
+<your KEY: value lines here, exactly as the input instructions specify>
 ANTFARM_EOF
 cat /tmp/antfarm-step-output.txt | node ${cli} step complete "<stepId>"
 \`\`\`
@@ -83,7 +114,8 @@ node ${cli} step fail "<stepId>" "description of what went wrong"
 RULES:
 1. NEVER end your session without calling step complete or step fail
 2. Write output to a file first, then pipe via stdin (shell escaping breaks direct args)
-3. If you're unsure whether to complete or fail, call step fail with an explanation
+3. Include EVERY key the input instructions ask for — missing keys break the pipeline
+4. If you're unsure whether to complete or fail, call step fail with an explanation
 
 The workflow cannot advance until you report. Your session ending without reporting = broken pipeline.`;
 }
@@ -125,10 +157,25 @@ async function resolveAgentCronModel(agentId: string, requestedModel?: string): 
   return requestedModel;
 }
 
-export function buildPollingPrompt(workflowId: string, agentId: string, workModel?: string): string {
+/**
+ * 构建轮询 prompt — 两阶段模式的第一阶段。
+ *
+ * 指导 agent：
+ *   1. 运行 `step peek` 轻量检查
+ *   2. 如果 NO_WORK → HEARTBEAT_OK 并结束
+ *   3. 如果 HAS_WORK → `step claim` → sessions_spawn 启动工作会话
+ *
+ * 使用廉价的轮询模型执行，避免空闲时浪费昂贵模型的 token。
+ *
+ * 模型选择策略（三级优先级）：
+ *   claim JSON 中的 model 字段 → fallbackWorkModel 参数 → "default"
+ *   这允许每个 step 在 workflow.yml 中指定不同的模型，
+ *   例如 plan/implement/review 用强模型，setup/pr 用标准模型。
+ */
+export function buildPollingPrompt(workflowId: string, agentId: string, fallbackWorkModel?: string): string {
   const fullAgentId = `${workflowId}_${agentId}`;
   const cli = resolveAntfarmCli();
-  const model = workModel ?? "default";
+  const defaultModel = fallbackWorkModel ?? "default";
   const workPrompt = buildWorkPrompt(workflowId, agentId);
 
   return `Step 1 — Quick check for pending work (lightweight, no side effects):
@@ -143,10 +190,10 @@ node ${cli} step claim "${fullAgentId}"
 \`\`\`
 If output is "NO_WORK", reply HEARTBEAT_OK and stop.
 
-If JSON is returned, parse it to extract stepId, runId, and input fields.
+If JSON is returned, parse it to extract stepId, runId, input, and optional model fields.
 Then call sessions_spawn with these parameters:
 - agentId: "${fullAgentId}"
-- model: "${model}"
+- model: Use the "model" field from the claim JSON if present; otherwise use "${defaultModel}"
 - task: The full work prompt below, followed by "\\n\\nCLAIMED STEP JSON:\\n" and the exact JSON output from step claim.
 
 Full work prompt to include in the spawned task:
@@ -157,13 +204,20 @@ ${workPrompt}
 Reply with a short summary of what you spawned.`;
 }
 
+/**
+ * 为工作流的所有 agent 创建 cron 轮询作业。
+ * 每个 agent 的 cron 间隔错开 1 分钟（anchorMs），避免同时触发造成竞争。
+ */
 export async function setupAgentCrons(workflow: WorkflowSpec): Promise<void> {
   const agents = workflow.agents;
   // Allow per-workflow cron interval via cron.interval_ms in workflow.yml
   const everyMs = (workflow as any).cron?.interval_ms ?? DEFAULT_EVERY_MS;
 
-  // Resolve polling model: per-agent > workflow-level > default
+  // Resolve polling model and work model separately
+  // polling = 轮询用（便宜模型，空转时调用）
+  // working = 工作用（强模型，实际执行任务时调用）
   const workflowPollingModel = workflow.polling?.model ?? DEFAULT_POLLING_MODEL;
+  const workflowWorkModel = workflow.working?.model ?? DEFAULT_POLLING_MODEL;
   const workflowPollingTimeout = workflow.polling?.timeoutSeconds ?? DEFAULT_POLLING_TIMEOUT_SECONDS;
 
   for (let i = 0; i < agents.length; i++) {
@@ -172,10 +226,11 @@ export async function setupAgentCrons(workflow: WorkflowSpec): Promise<void> {
     const cronName = `antfarm/${workflow.id}/${agent.id}`;
     const agentId = `${workflow.id}_${agent.id}`;
 
-    // Two-phase: Phase 1 uses cheap polling model + minimal prompt
+    // Phase 1（cron 触发）: 使用便宜的轮询模型
     const requestedPollingModel = agent.pollingModel ?? workflowPollingModel;
     const pollingModel = await resolveAgentCronModel(agentId, requestedPollingModel);
-    const requestedWorkModel = agent.model ?? workflowPollingModel;
+    // Phase 2（sessions_spawn）: 使用强力的工作模型
+    const requestedWorkModel = agent.model ?? workflowWorkModel;
     const workModel = await resolveAgentCronModel(agentId, requestedWorkModel);
     const prompt = buildPollingPrompt(workflow.id, agent.id, workModel);
     const timeoutSeconds = workflowPollingTimeout;

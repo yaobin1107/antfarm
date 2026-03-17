@@ -1,3 +1,11 @@
+/**
+ * 结构化日志记录器 — 将工作流运行时日志写入文件。
+ *
+ * 日志文件：~/.openclaw/antfarm/logs/workflow.log（5MB 自动轮转）
+ * 日志格式：[timestamp] [LEVEL] [workflowId] [runId] [stepId] message
+ *
+ * 设计原则：日志操作永不抛出异常，不影响调用方正常执行。
+ */
 import fs from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -5,7 +13,7 @@ import os from "node:os";
 
 const LOG_DIR = path.join(os.homedir(), ".openclaw", "antfarm", "logs");
 const LOG_FILE = path.join(LOG_DIR, "workflow.log");
-const MAX_LOG_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_LOG_SIZE = 5 * 1024 * 1024; // 5MB 轮转阈值
 
 export type LogLevel = "info" | "warn" | "error" | "debug";
 

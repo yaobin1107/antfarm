@@ -1,5 +1,8 @@
 /**
- * Medic cron management — install/uninstall the medic's periodic check cron job.
+ * Medic Cron 管理 — 安装/卸载 Medic 看门狗的定时检查 cron 作业。
+ *
+ * Medic 每 5 分钟运行一次健康检查，通过 OpenClaw 的 cron 工具触发。
+ * 检查发现问题后可自动修复（重置卡住的步骤）或上报到主 agent 会话。
  */
 import { createAgentCronJob, deleteCronJob, listCronJobs } from "../installer/gateway-api.js";
 import { resolveAntfarmCli } from "../installer/paths.js";

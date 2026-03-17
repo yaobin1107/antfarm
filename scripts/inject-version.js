@@ -20,7 +20,7 @@ const htmlPath = join(root, "landing", "index.html");
 let html = readFileSync(htmlPath, "utf8");
 
 // Version badge
-html = html.replace(/v\{\{VERSION\}\}/g, `v${version}`);
+html = html.replace(/v\{\{VERSION\}\}/g, `V${version}`);
 html = html.replace(
   /(class="version-badge">v)\d+\.\d+\.\d+[^<]*/g,
   `$1${version}`
@@ -28,8 +28,8 @@ html = html.replace(
 
 // Curl URLs: replace tagged version in raw.githubusercontent URLs
 html = html.replace(
-  /raw\.githubusercontent\.com\/snarktank\/antfarm\/v[\d.]+\//g,
-  `raw.githubusercontent.com/snarktank/antfarm/v${version}/`
+  /raw\.githubusercontent\.com\/yaobin1107\/antfarm\/v[\d.]+\//g,
+  `raw.githubusercontent.com/yaobin1107/antfarm/V${version}/`
 );
 
 writeFileSync(htmlPath, html, "utf8");
@@ -40,8 +40,8 @@ const readmePath = join(root, "README.md");
 if (existsSync(readmePath)) {
   let readme = readFileSync(readmePath, "utf8");
   readme = readme.replace(
-    /raw\.githubusercontent\.com\/snarktank\/antfarm\/v[\d.]+\//g,
-    `raw.githubusercontent.com/snarktank/antfarm/v${version}/`
+    /raw\.githubusercontent\.com\/yaobin1107\/antfarm\/v[\d.]+\//g,
+    `raw.githubusercontent.com/yaobin1107/antfarm/V${version}/`
   );
   writeFileSync(readmePath, readme, "utf8");
   console.log(`Injected version ${version} into README.md`);
@@ -52,8 +52,8 @@ const installPath = join(root, "scripts", "install.sh");
 if (existsSync(installPath)) {
   let install = readFileSync(installPath, "utf8");
   install = install.replace(
-    /raw\.githubusercontent\.com\/snarktank\/antfarm\/v[\d.]+\//g,
-    `raw.githubusercontent.com/snarktank/antfarm/v${version}/`
+    /raw\.githubusercontent\.com\/yaobin1107\/antfarm\/v[\d.]+\//g,
+    `raw.githubusercontent.com/yaobin1107/antfarm/V${version}/`
   );
   writeFileSync(installPath, install, "utf8");
   console.log(`Injected version ${version} into scripts/install.sh`);

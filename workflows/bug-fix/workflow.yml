@@ -9,7 +9,10 @@ description: |
   PR agent creates the pull request.
 
 polling:
-  model: default
+  model: aliyun/qwen3-vl-235b-a22b-instruct    # 默认心跳模型
+  timeoutSeconds: 120
+working:
+  model: bailian/qwen3.5-plus    # 默认工作执行模型
   timeoutSeconds: 120
 
 agents:
@@ -17,6 +20,7 @@ agents:
     name: Triager
     role: analysis
     description: Analyzes bug reports, reproduces issues, classifies severity.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/triager
       files:
@@ -28,6 +32,7 @@ agents:
     name: Investigator
     role: analysis
     description: Traces bugs to root cause and proposes fix approach.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/investigator
       files:
@@ -39,6 +44,7 @@ agents:
     name: Setup
     role: coding
     description: Creates bugfix branch and establishes baseline.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/setup
       files:
@@ -50,6 +56,7 @@ agents:
     name: Fixer
     role: coding
     description: Implements the fix and writes regression tests.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/fixer
       files:
@@ -61,6 +68,7 @@ agents:
     name: Verifier
     role: verification
     description: Verifies the fix and regression test correctness.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/verifier
       files:
@@ -72,6 +80,7 @@ agents:
     name: PR Creator
     role: pr
     description: Creates a pull request with bug fix details.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/pr
       files:
@@ -82,6 +91,7 @@ agents:
 steps:
   - id: triage
     agent: triager
+    model: bailian/qwen3-coder-plus    # Tier 3: 复现和分类需要深度理解代码
     input: |
       Triage the following bug report. Explore the codebase, reproduce the issue, and classify severity.
 
@@ -110,6 +120,7 @@ steps:
 
   - id: investigate
     agent: investigator
+    model: bailian/qwen3-coder-plus    # Tier 3: 根因分析需要深度推理
     input: |
       Investigate the root cause of this bug.
 
@@ -139,6 +150,7 @@ steps:
 
   - id: setup
     agent: setup
+    model: bailian/qwen3.5-plus        # Tier 2: 环境准备是机械性操作
     input: |
       Prepare the environment for the bugfix.
 
@@ -165,6 +177,7 @@ steps:
 
   - id: fix
     agent: fixer
+    model: bailian/qwen3-coder-plus    # Tier 3: Bug 修复需要最强编码能力
     input: |
       Implement the bug fix.
 
@@ -196,12 +209,13 @@ steps:
       CHANGES: what was changed
       REGRESSION_TEST: what test was added
     expects: "STATUS: done"
-    max_retries: 2
+    max_retries: 3
     on_fail:
       escalate_to: human
 
   - id: verify
     agent: verifier
+    model: bailian/qwen3.5-plus        # Tier 2: 验证是检查清单操作
     input: |
       Verify the bug fix is correct and complete.
 
@@ -252,6 +266,7 @@ steps:
 
   - id: pr
     agent: pr
+    model: bailian/qwen3.5-plus        # Tier 2: PR 创建不需要深度编码
     input: |
       Create a pull request for the bug fix.
 

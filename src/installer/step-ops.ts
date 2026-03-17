@@ -1,3 +1,33 @@
+/**
+ * 步骤操作引擎 — Antfarm 工作流的核心执行层。
+ *
+ * 本模块实现了多 Agent 工作流的运行时调度逻辑：
+ *
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │  Agent Cron（定时触发）                                      │
+ * │    │                                                        │
+ * │    ├─ peekStep()   轻量检查是否有待处理工作（一条 COUNT 查询）  │
+ * │    ├─ claimStep()  认领一个 pending 步骤，返回解析后的输入      │
+ * │    │   ├─ 清理超时放弃的步骤（cleanupAbandonedSteps）         │
+ * │    │   ├─ 解析模板变量（resolveTemplate）                     │
+ * │    │   └─ Loop 步骤：认领下一个 pending 的 story              │
+ * │    │                                                        │
+ * │    ├─ completeStep()  步骤完成，保存输出并推进流水线           │
+ * │    │   ├─ 解析 KEY: value 输出并合并到 run context            │
+ * │    │   ├─ 解析 STORIES_JSON 并插入 stories 表                 │
+ * │    │   ├─ Loop 步骤：标记 story 完成，触发 verify_each         │
+ * │    │   └─ advancePipeline()  将下一个 waiting 步骤设为 pending │
+ * │    │                                                        │
+ * │    └─ failStep()    步骤失败，按重试策略处理                   │
+ * │        ├─ Loop 步骤：per-story 重试计数                       │
+ * │        ├─ Single 步骤：per-step 重试计数                      │
+ * │        └─ 重试耗尽 → 失败 run + 通知升级                      │
+ * └─────────────────────────────────────────────────────────────┘
+ *
+ * 步骤状态机：waiting → pending → running → done / failed
+ * Story 状态机：pending → running → done / failed
+ * Run 状态机：running → completed / failed / cancelled
+ */
 import { getDb } from "../db.js";
 import type { LoopConfig, Story } from "./types.js";
 import fs from "node:fs";
@@ -210,6 +240,12 @@ function formatCompletedStories(stories: Story[]): string {
 
 /**
  * Parse STORIES_JSON from step output and insert stories into the DB.
+ *
+ * 支持多种 AI 模型输出格式：
+ *   - STORIES_JSON: [...]              （同行内联）
+ *   - STORIES_JSON:\n[...]             （下一行开始）
+ *   - STORIES_JSON:\n```json\n[...]\n```  （markdown 代码块包裹）
+ *   - STORIES_JSON: [\n  {...}\n]      （多行 pretty-print）
  */
 function parseAndInsertStories(output: string, runId: string): void {
   const lines = output.split("\n");
@@ -224,7 +260,10 @@ function parseAndInsertStories(output: string, runId: string): void {
     jsonLines.push(lines[i]);
   }
 
-  const jsonText = jsonLines.join("\n").trim();
+  // Strip markdown code block wrappers (```json ... ``` or ``` ... ```)
+  // LLMs frequently wrap JSON output in code blocks
+  let jsonText = jsonLines.join("\n").trim();
+  jsonText = jsonText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/, "").trim();
   let stories: any[];
   try {
     stories = JSON.parse(jsonText);
@@ -471,6 +510,8 @@ interface ClaimResult {
   stepId?: string;
   runId?: string;
   resolvedInput?: string;
+  /** 该步骤应使用的模型（step.model → agent.model → working.model），供 sessions_spawn 使用 */
+  model?: string;
 }
 
 /**
@@ -480,7 +521,17 @@ let lastCleanupTime = 0;
 const CLEANUP_THROTTLE_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Find and claim a pending step for an agent, returning the resolved input.
+ * 为指定 agent 认领一个 pending 步骤并返回解析后的任务输入。
+ *
+ * 认领流程：
+ *   1. 节流清理超时步骤（每 5 分钟最多一次）
+ *   2. 查找该 agent 在活跃 run 中的第一个 pending 步骤（确保前置步骤都已完成）
+ *   3. 构建模板上下文（run context + story vars + progress）
+ *   4. 解析 {{key}} 占位符为实际值
+ *   5. 更新步骤状态为 running
+ *
+ * 对于 loop 类型步骤，还会自动认领下一个 pending 的 story。
+ * 如果所有 story 都已完成，自动标记 loop 步骤为 done 并推进流水线。
  */
 export function claimStep(agentId: string): ClaimResult {
   // Throttle cleanup: run at most once every 5 minutes across all agents
@@ -492,7 +543,7 @@ export function claimStep(agentId: string): ClaimResult {
   const db = getDb();
 
   const step = db.prepare(
-    `SELECT s.id, s.step_id, s.run_id, s.input_template, s.type, s.loop_config, s.step_index
+    `SELECT s.id, s.step_id, s.run_id, s.input_template, s.type, s.loop_config, s.step_index, s.model
      FROM steps s
      JOIN runs r ON r.id = s.run_id
      WHERE s.agent_id = ? AND s.status = 'pending'
@@ -509,6 +560,7 @@ export function claimStep(agentId: string): ClaimResult {
     id: string; step_id: string; run_id: string; input_template: string; type: string;
     loop_config: string | null;
     step_index: number;
+    model: string | null;
   } | undefined;
 
   if (!step) return { found: false };
@@ -636,7 +688,7 @@ export function claimStep(agentId: string): ClaimResult {
       db.prepare("UPDATE runs SET context = ?, updated_at = datetime('now') WHERE id = ?").run(JSON.stringify(context), step.run_id);
 
       const resolvedInput = resolveTemplate(step.input_template, context);
-      return { found: true, stepId: step.id, runId: step.run_id, resolvedInput };
+      return { found: true, stepId: step.id, runId: step.run_id, resolvedInput, model: step.model ?? undefined };
     }
   }
 
@@ -668,6 +720,7 @@ export function claimStep(agentId: string): ClaimResult {
     stepId: step.id,
     runId: step.run_id,
     resolvedInput,
+    model: step.model ?? undefined,
   };
 }
 
@@ -706,7 +759,23 @@ export function completeStep(stepId: string, output: string): { advanced: boolea
   ).run(JSON.stringify(context), step.run_id);
 
   // T5: Parse STORIES_JSON from output (any step, typically the planner)
-  parseAndInsertStories(output, step.run_id);
+  try {
+    parseAndInsertStories(output, step.run_id);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`STORIES_JSON parsing failed: ${message}`, { runId: step.run_id, stepId: step.step_id });
+    // Fail the step and run — stories are required for loop steps to proceed
+    db.prepare(
+      "UPDATE steps SET status = 'failed', output = ?, updated_at = datetime('now') WHERE id = ?"
+    ).run(`STORIES_JSON parsing failed: ${message}`, stepId);
+    db.prepare(
+      "UPDATE runs SET status = 'failed', updated_at = datetime('now') WHERE id = ?"
+    ).run(step.run_id);
+    emitEvent({ ts: new Date().toISOString(), event: "step.failed", runId: step.run_id, workflowId: getWorkflowId(step.run_id), stepId: step.step_id, detail: `STORIES_JSON parsing failed: ${message}` });
+    emitEvent({ ts: new Date().toISOString(), event: "run.failed", runId: step.run_id, workflowId: getWorkflowId(step.run_id), detail: `STORIES_JSON parsing failed: ${message}` });
+    scheduleRunCronTeardown(step.run_id);
+    return { advanced: false, runCompleted: false };
+  }
 
   // T7: Loop step completion
   if (step.type === "loop" && step.current_story_id) {
@@ -774,7 +843,11 @@ export function completeStep(stepId: string, output: string): { advanced: boolea
 }
 
 /**
- * Handle verify-each completion: pass or fail the story.
+ * 处理 verify_each 步骤完成 — 根据验证结果决定 story 通过还是重试。
+ *
+ * 当 verifier 输出 STATUS: done → story 通过验证，继续处理下一个 story。
+ * 当 verifier 输出 STATUS: retry → story 重置为 pending，developer 重新实现。
+ * 重试次数耗尽 → story 失败 → 整个 run 失败。
  */
 function handleVerifyEachCompletion(
   verifyStep: { id: string; run_id: string; step_id: string; step_index: number },
@@ -907,8 +980,13 @@ function checkLoopContinuation(runId: string, loopStepId: string): { advanced: b
 }
 
 /**
- * Advance the pipeline: find the next waiting step and make it pending, or complete the run.
- * Respects terminal run states — a failed run cannot be advanced or completed.
+ * 流水线推进器 — 当一个步骤完成后，激活下一个等待中的步骤，或标记整个运行为完成。
+ *
+ * 逻辑：
+ *   1. 守卫：已失败/已取消的 run 不可推进
+ *   2. 如果还有 running 步骤 → 等待（并行步骤场景）
+ *   3. 找到下一个 waiting 步骤 → 设为 pending
+ *   4. 没有更多步骤 → 标记 run 完成 + 归档进度文件 + 清理 cron
  */
 function advancePipeline(runId: string): { advanced: boolean; runCompleted: boolean } {
   const db = getDb();
@@ -1030,7 +1108,11 @@ export function archiveRunProgress(runId: string): void {
 }
 
 /**
- * Fail a step, with retry logic. For loop steps, applies per-story retry.
+ * 步骤失败处理 — 带重试逻辑。
+ *
+ * - Loop 步骤：应用 per-story 重试（单个 story 失败不影响其他 story 的重试计数）
+ * - Single 步骤：应用 per-step 重试
+ * - 重试耗尽后：标记步骤和 run 为 failed，清理 cron，并向升级目标发送通知
  */
 export async function failStep(stepId: string, error: string): Promise<{ retrying: boolean; runFailed: boolean }> {
   const db = getDb();

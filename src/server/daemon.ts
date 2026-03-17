@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+/**
+ * Dashboard 守护进程入口 — 由 daemonctl.ts 以 detached 模式启动。
+ * 写入 PID 文件以便后续停止/状态查询，并处理 SIGTERM 清理。
+ */
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";

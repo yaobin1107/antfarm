@@ -9,7 +9,10 @@ description: |
   Verifier confirms each fix. Tester runs final integration validation. PR agent creates the pull request.
 
 polling:
-  model: default
+  model: aliyun/qwen3-vl-235b-a22b-instruct    # 默认心跳模型
+  timeoutSeconds: 120
+working:
+  model: bailian/qwen3.5-plus    # 默认工作执行模型
   timeoutSeconds: 120
 
 agents:
@@ -17,6 +20,7 @@ agents:
     name: Scanner
     role: scanning
     description: Explores codebase and runs comprehensive security analysis.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/scanner
       files:
@@ -28,6 +32,7 @@ agents:
     name: Prioritizer
     role: analysis
     description: Deduplicates, ranks, and groups findings into a fix plan.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/prioritizer
       files:
@@ -39,6 +44,7 @@ agents:
     name: Setup
     role: coding
     description: Creates security branch and establishes baseline.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/setup
       files:
@@ -50,6 +56,7 @@ agents:
     name: Fixer
     role: coding
     description: Implements security fixes one at a time with regression tests.
+    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/fixer
       files:
@@ -61,6 +68,7 @@ agents:
     name: Verifier
     role: verification
     description: Verifies each fix is correct and the vulnerability is patched.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/verifier
       files:
@@ -72,6 +80,7 @@ agents:
     name: Tester
     role: testing
     description: Final integration testing and audit re-run after all fixes.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/tester
       files:
@@ -83,6 +92,7 @@ agents:
     name: PR Creator
     role: pr
     description: Creates a pull request summarizing the security audit and fixes.
+    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/pr
       files:
@@ -93,6 +103,7 @@ agents:
 steps:
   - id: scan
     agent: scanner
+    model: bailian/qwen3-coder-plus    # Tier 3: 安全扫描需要深度理解代码模式
     input: |
       Perform a comprehensive security audit of the codebase.
 
@@ -132,6 +143,7 @@ steps:
 
   - id: prioritize
     agent: prioritizer
+    model: bailian/qwen3-coder-plus    # Tier 3: 漏洞排序和修复规划需要深度推理
     input: |
       Prioritize and group the security findings into a fix plan.
 
@@ -171,6 +183,7 @@ steps:
 
   - id: setup
     agent: setup
+    model: bailian/qwen3.5-plus        # Tier 2: 环境准备是机械性操作
     input: |
       Prepare the environment for security fixes.
 
@@ -181,8 +194,9 @@ steps:
       1. cd into the repo
       2. Create the security branch (git checkout -b {{branch}} from main)
       3. Read package.json, CI config, test config to understand build/test setup
-      4. Run the build to establish a baseline
-      5. Run the tests to establish a baseline
+      4. Ensure .gitignore exists — if missing, create one appropriate for the detected stack (must include .env, node_modules/, *.key, *.pem at minimum)
+      5. Run the build to establish a baseline
+      6. Run the tests to establish a baseline
 
       Reply with:
       STATUS: done
@@ -196,6 +210,7 @@ steps:
 
   - id: fix
     agent: fixer
+    model: bailian/qwen3-coder-plus    # Tier 3: 安全修复需要最强编码能力
     type: loop
     loop:
       over: stories
@@ -249,6 +264,7 @@ steps:
 
   - id: verify
     agent: verifier
+    model: bailian/qwen3.5-plus        # Tier 2: 验证是检查清单操作
     input: |
       Verify the security fix is correct and the vulnerability is patched.
 
@@ -296,6 +312,7 @@ steps:
 
   - id: test
     agent: tester
+    model: bailian/qwen3.5-plus        # Tier 2: 运行测试是执行性任务
     input: |
       Final integration testing after all security fixes.
 
@@ -338,6 +355,7 @@ steps:
 
   - id: pr
     agent: pr
+    model: bailian/qwen3.5-plus        # Tier 2: PR 创建不需要深度编码
     input: |
       Create a pull request for the security fixes.
 

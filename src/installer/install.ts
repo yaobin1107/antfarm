@@ -1,3 +1,17 @@
+/**
+ * 工作流安装器 — 将 bundled workflow 部署到用户的 OpenClaw 环境中。
+ *
+ * 安装流程：
+ *   1. fetchWorkflow()       — 将 workflows/<id> 复制到 ~/.openclaw/antfarm/workflows/<id>
+ *   2. loadWorkflowSpec()    — 解析 workflow.yml 并校验结构
+ *   3. provisionAgents()     — 为每个 agent 创建工作空间目录并部署 AGENTS.md / SOUL.md 等文件
+ *   4. 修改 openclaw.json    — 将 agent 条目注册到 OpenClaw 配置（含权限策略、子代理白名单）
+ *   5. updateMainAgentGuidance() — 在用户主 agent 的 AGENTS.md/TOOLS.md 中注入 Antfarm 操作指引
+ *   6. installAntfarmSkill() — 安装 antfarm-workflows 技能到用户技能目录
+ *
+ * 每个 agent 根据其 role（analysis / coding / verification / testing / pr / scanning）
+ * 获得不同的工具权限策略（ROLE_POLICIES），确保最小权限原则。
+ */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fetchWorkflow } from "./workflow-fetch.js";
@@ -9,6 +23,7 @@ import { addSubagentAllowlist } from "./subagent-allowlist.js";
 import { installAntfarmSkill } from "./skill-install.js";
 import type { AgentRole, WorkflowInstallResult } from "./types.js";
 
+/** 确保 OpenClaw 配置中存在 agents.list 数组，不存在则初始化。 */
 function ensureAgentList(config: { agents?: { list?: Array<Record<string, unknown>>; defaults?: Record<string, unknown> } }) {
   if (!config.agents) config.agents = {};
   if (!Array.isArray(config.agents.list)) config.agents.list = [];
@@ -59,14 +74,20 @@ const DEFAULT_SESSION_MAINTENANCE = {
 } as const;
 
 /**
- * Per-role defaults: tool policies + timeout overrides.
+ * 每个角色的默认工具策略和超时配置。
  *
- * Profile "coding" provides: group:fs (read/write/edit/apply_patch),
- *   group:runtime (exec/process), group:sessions, group:memory, image.
- * We then use deny to remove tools each role shouldn't have.
+ * 基于 OpenClaw 的 "coding" profile，该 profile 提供：
+ *   group:fs（读/写/编辑）、group:runtime（执行/进程）、group:sessions、group:memory、image
  *
- * timeoutSeconds: heavy roles (coding, testing) get 30 min; lighter roles 20 min.
- * If a role has no timeoutSeconds, OpenClaw's global default (600s) applies.
+ * 然后通过 deny 列表移除每个角色不需要的工具，实现最小权限原则：
+ *   - analysis（分析）   — 只读，不能写文件
+ *   - coding（编码）     — 完整读写执行权限
+ *   - verification（验证）— 只读+执行，不能修改被验证的代码
+ *   - testing（测试）    — 只读+执行+浏览器，不能修改生产代码
+ *   - pr（PR 创建）      — 只读+执行（运行 gh CLI）
+ *   - scanning（扫描）   — 只读+执行+网络搜索
+ *
+ * 超时时间：重型角色（coding, testing）30 分钟，轻型角色 20 分钟。
  */
 const TIMEOUT_20_MIN = 1200;
 const TIMEOUT_30_MIN = 1800;
@@ -156,8 +177,8 @@ export function getMaxRoleTimeoutSeconds(): number {
 const SUBAGENT_POLICY = { allowAgents: [] as string[] };
 
 /**
- * Infer an agent's role from its id when not explicitly set in workflow YAML.
- * Matches common agent id patterns across all bundled workflows.
+ * 当 workflow YAML 中未显式指定 role 时，根据 agent ID 中的关键词自动推断角色。
+ * 例如：planner → analysis，developer → coding，verifier → verification。
  */
 function inferRole(agentId: string): AgentRole {
   const id = agentId.toLowerCase();
@@ -234,6 +255,12 @@ async function writeWorkflowMetadata(params: { workflowDir: string; workflowId: 
   await fs.writeFile(path.join(params.workflowDir, "metadata.json"), `${JSON.stringify(content, null, 2)}\n`, "utf-8");
 }
 
+/**
+ * 安装一个 bundled workflow 到用户环境。
+ *
+ * 执行顺序：fetch → parse → provision agents → update OpenClaw config → guidance → skill → metadata
+ * 安装完成后，用户可通过 `antfarm workflow run <id> "task"` 启动运行。
+ */
 export async function installWorkflow(params: { workflowId: string }): Promise<WorkflowInstallResult> {
   const { workflowDir, bundledSourceDir } = await fetchWorkflow(params.workflowId);
   const workflow = await loadWorkflowSpec(workflowDir);

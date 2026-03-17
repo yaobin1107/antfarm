@@ -1,3 +1,16 @@
+/**
+ * 工作流运行启动器 — 将一个任务描述转化为一次可执行的工作流运行。
+ *
+ * 启动流程：
+ *   1. 加载 workflow.yml 规范
+ *   2. 在 SQLite 中创建 run 记录 + 各 step 记录（事务性）
+ *   3. 第一个 step 状态设为 "pending"，其余设为 "waiting"
+ *   4. 启动（或确认已存在）该工作流的 cron 轮询作业
+ *   5. 发射 run.started 事件
+ *
+ * 一旦 cron 轮询开始，各 agent 将自动 claim → 执行 → complete/fail 各步骤，
+ * 流水线由 advancePipeline() 自动推进。
+ */
 import crypto from "node:crypto";
 import { loadWorkflowSpec } from "./workflow-spec.js";
 import { resolveWorkflowDir } from "./paths.js";
@@ -6,6 +19,14 @@ import { logger } from "../lib/logger.js";
 import { ensureWorkflowCrons } from "./agent-cron.js";
 import { emitEvent } from "./events.js";
 
+/**
+ * 启动一个新的工作流运行。
+ *
+ * @param params.workflowId  工作流 ID（如 "feature-dev"）
+ * @param params.taskTitle   任务描述（人类可读的需求文本）
+ * @param params.notifyUrl   可选的 webhook 通知 URL
+ * @returns 创建的运行记录摘要
+ */
 export async function runWorkflow(params: {
   workflowId: string;
   taskTitle: string;
@@ -32,8 +53,15 @@ export async function runWorkflow(params: {
     insertRun.run(runId, runNumber, workflow.id, params.taskTitle, JSON.stringify(initialContext), notifyUrl, now, now);
 
     const insertStep = db.prepare(
-      "INSERT INTO steps (id, run_id, step_id, agent_id, step_index, input_template, expects, status, max_retries, type, loop_config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO steps (id, run_id, step_id, agent_id, step_index, input_template, expects, status, max_retries, type, loop_config, model, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
+
+    // Build agent model lookup for step.model fallback resolution
+    const agentModelMap = new Map<string, string | undefined>();
+    for (const agent of workflow.agents) {
+      agentModelMap.set(agent.id, agent.model);
+    }
+    const workflowWorkModel = workflow.working?.model ?? null;
 
     for (let i = 0; i < workflow.steps.length; i++) {
       const step = workflow.steps[i];
@@ -43,7 +71,9 @@ export async function runWorkflow(params: {
       const maxRetries = step.max_retries ?? step.on_fail?.max_retries ?? 2;
       const stepType = step.type ?? "single";
       const loopConfig = step.loop ? JSON.stringify(step.loop) : null;
-      insertStep.run(stepUuid, runId, step.id, agentId, i, step.input, step.expects, status, maxRetries, stepType, loopConfig, now, now);
+      // Model priority: step.model → agent.model → workflow.working.model → null
+      const stepModel = step.model ?? agentModelMap.get(step.agent) ?? workflowWorkModel ?? null;
+      insertStep.run(stepUuid, runId, step.id, agentId, i, step.input, step.expects, status, maxRetries, stepType, loopConfig, stepModel, now, now);
     }
 
     db.exec("COMMIT");

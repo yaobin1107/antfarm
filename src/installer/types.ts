@@ -1,3 +1,18 @@
+/**
+ * Antfarm 类型定义 — 工作流规范和运行时数据结构。
+ *
+ * 层次关系：
+ *   WorkflowSpec（workflow.yml）
+ *     ├─ WorkflowAgent[]     各 Agent 定义（角色、模型、工作空间）
+ *     └─ WorkflowStep[]      有序步骤列表（步骤类型、模板输入、期望输出）
+ *         └─ LoopConfig?     循环配置（遍历 stories，支持 verify_each）
+ *
+ *   WorkflowRunRecord（运行时状态）
+ *     ├─ StepResult[]        各步骤执行结果
+ *     └─ Story[]             用户故事（由 planner 产出，developer 逐个实现）
+ */
+
+/** Agent 工作空间文件配置 — 定义 agent 需要的引导文件。 */
 export type WorkflowAgentFiles = {
   baseDir: string;
   files: Record<string, string>;
@@ -52,6 +67,8 @@ export type WorkflowStep = {
   agent: string;
   type?: "single" | "loop";
   loop?: LoopConfig;
+  /** 步骤级模型覆盖。优先级：step.model → agent.model → working.model → "default" */
+  model?: string;
   input: string;
   expects: string;
   max_retries?: number;
@@ -77,6 +94,7 @@ export type WorkflowSpec = {
   name?: string;
   version?: number;
   polling?: PollingConfig;
+  working?: PollingConfig;
   agents: WorkflowAgent[];
   steps: WorkflowStep[];
   context?: Record<string, string>;

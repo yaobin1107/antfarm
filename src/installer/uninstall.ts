@@ -1,3 +1,31 @@
+/**
+ * 工作流卸载器 — 完整地从用户环境中移除工作流及相关资源。
+ *
+ * 单工作流卸载（uninstallWorkflow）：
+ *   移除该工作流的 agents 配置、工作空间目录、运行记录、cron 作业、agent 目录
+ *
+ * 全量卸载（uninstallAllWorkflows）：
+ *   移除所有工作流 + Dashboard + 数据库 + 日志 + CLI 符号链接 + npm link + dist/
+ *   这是完整的"从地球上消失"式卸载。
+ */
+/**
+ * 工作流卸载器 — 安全地移除工作流及其关联的所有资源。
+ *
+ * 单个卸载（uninstallWorkflow）清理：
+ *   - OpenClaw 配置中的 agent 条目
+ *   - 子代理白名单
+ *   - 工作流目录和工作空间
+ *   - 运行记录（runs / steps / stories）
+ *   - Cron 作业
+ *   - Agent 配置目录
+ *
+ * 全量卸载（uninstallAllWorkflows）额外清理：
+ *   - SQLite 数据库文件
+ *   - Dashboard 守护进程
+ *   - 事件日志和运行时文件
+ *   - CLI 符号链接
+ *   - npm link 和 dist/node_modules
+ */
 import fs from "node:fs/promises";
 import path from "node:path";
 import { execSync } from "node:child_process";
