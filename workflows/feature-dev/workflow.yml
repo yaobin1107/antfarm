@@ -89,7 +89,7 @@ agents:
 steps:
   - id: plan
     agent: planner
-    model: bailian/qwen3-coder-plus    # Tier 3: 任务分解需要深度理解代码库
+    model: bailian/qwen3.5-plus    # Tier 3: 任务分解需要深度理解代码库
     input: |
       Decompose the following task into ordered user stories for autonomous execution.
 
