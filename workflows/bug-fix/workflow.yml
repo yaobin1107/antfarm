@@ -9,10 +9,7 @@ description: |
   PR agent creates the pull request.
 
 polling:
-  model: aliyun/qwen3-vl-235b-a22b-instruct    # 默认心跳模型
-  timeoutSeconds: 120
-working:
-  model: bailian/qwen3.5-plus    # 默认工作执行模型
+  model: bailian/qwen3-max-2026-01-23    # 默认心跳模型
   timeoutSeconds: 120
 
 agents:
@@ -144,7 +141,7 @@ steps:
 
   - id: setup
     agent: setup
-    model: bailian/qwen3.5-plus        # Tier 2: 环境准备是机械性操作
+    model: bailian/qwen3-max-2026-01-23        # Tier 2: 环境准备是机械性操作
     input: |
       Prepare the environment for the bugfix.
 
@@ -209,7 +206,7 @@ steps:
 
   - id: verify
     agent: verifier
-    model: bailian/qwen3.5-plus        # Tier 2: 验证是检查清单操作
+    model: bailian/qwen3-max-2026-01-23        # Tier 2: 验证是检查清单操作
     input: |
       Verify the bug fix is correct and complete.
 
@@ -260,7 +257,7 @@ steps:
 
   - id: pr
     agent: pr
-    model: bailian/qwen3.5-plus        # Tier 2: PR 创建不需要深度编码
+    model: bailian/qwen3-max-2026-01-23        # Tier 2: PR 创建不需要深度编码
     input: |
       Create a pull request for the bug fix.
 

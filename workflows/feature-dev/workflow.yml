@@ -10,10 +10,7 @@ description: |
   Then integration/E2E testing, PR creation, and code review.
 
 polling:
-  model: aliyun/qwen3-vl-235b-a22b-instruct    # 默认心跳模型
-  timeoutSeconds: 120
-working:
-  model: bailian/qwen3.5-plus    # 默认工作执行模型
+  model: bailian/qwen3-max-2026-01-23    # 默认心跳模型
   timeoutSeconds: 120
 
 agents:
@@ -21,7 +18,6 @@ agents:
     name: Planner
     role: analysis
     description: Decomposes tasks into ordered user stories.
-    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/planner
       files:
@@ -33,7 +29,6 @@ agents:
     name: Setup
     role: coding
     description: Prepares environment, creates branch, establishes baseline.
-    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/setup
       files:
@@ -45,7 +40,6 @@ agents:
     name: Developer
     role: coding
     description: Implements features, writes tests, creates PRs.
-    model: bailian/qwen3-coder-plus
     workspace:
       baseDir: agents/developer
       files:
@@ -57,7 +51,6 @@ agents:
     name: Verifier
     role: verification
     description: Quick sanity check - did developer actually do the work?
-    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/verifier
       skills:
@@ -71,7 +64,6 @@ agents:
     name: Tester
     role: testing
     description: Integration and E2E testing after all stories are implemented.
-    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/tester
       files:
@@ -83,7 +75,6 @@ agents:
     name: Reviewer
     role: analysis
     description: Reviews PRs, requests changes or approves.
-    model: bailian/qwen3.5-plus
     workspace:
       baseDir: agents/reviewer
       skills:
@@ -125,7 +116,7 @@ steps:
 
   - id: setup
     agent: setup
-    model: bailian/qwen3.5-plus        # Tier 2: 环境准备是机械性操作
+    model: bailian/qwen3-max-2026-01-23        # Tier 2: 环境准备是机械性操作
     input: |
       Prepare the development environment for this feature.
 
@@ -212,7 +203,7 @@ steps:
 
   - id: verify
     agent: verifier
-    model: bailian/qwen3.5-plus        # Tier 2: 验证是检查清单，不需要最强推理
+    model: bailian/qwen3-max-2026-01-23        # Tier 2: 验证是检查清单，不需要最强推理
     input: |
       Verify the developer's work on this story.
 
@@ -274,7 +265,7 @@ steps:
 
   - id: test
     agent: tester
-    model: bailian/qwen3.5-plus        # Tier 2: 运行测试是执行性任务
+    model: bailian/qwen3-max-2026-01-23        # Tier 2: 运行测试是执行性任务
     input: |
       Integration and E2E testing of the implementation.
 
@@ -314,7 +305,7 @@ steps:
 
   - id: pr
     agent: developer
-    model: bailian/qwen3.5-plus        # Tier 2: PR 创建不需要深度编码能力
+    model: bailian/qwen3-max-2026-01-23        # Tier 2: PR 创建不需要深度编码能力
     input: |
       Create a pull request for your changes.
 
