@@ -209,8 +209,11 @@ export async function setupAgentCrons(workflow: WorkflowSpec): Promise<void> {
   // Allow per-workflow cron interval via cron.interval_ms in workflow.yml
   const everyMs = (workflow as any).cron?.interval_ms ?? DEFAULT_EVERY_MS;
 
-  // Resolve polling model: per-agent > workflow-level > default
+  // Resolve polling model and work model separately
+  // polling = 轮询用（便宜模型，空转时调用）
+  // working = 工作用（强模型，实际执行任务时调用）
   const workflowPollingModel = workflow.polling?.model ?? DEFAULT_POLLING_MODEL;
+  const workflowWorkModel = workflow.working?.model ?? DEFAULT_POLLING_MODEL;
   const workflowPollingTimeout = workflow.polling?.timeoutSeconds ?? DEFAULT_POLLING_TIMEOUT_SECONDS;
 
   for (let i = 0; i < agents.length; i++) {
@@ -219,10 +222,11 @@ export async function setupAgentCrons(workflow: WorkflowSpec): Promise<void> {
     const cronName = `antfarm/${workflow.id}/${agent.id}`;
     const agentId = `${workflow.id}_${agent.id}`;
 
-    // Two-phase: Phase 1 uses cheap polling model + minimal prompt
+    // Phase 1（cron 触发）: 使用便宜的轮询模型
     const requestedPollingModel = agent.pollingModel ?? workflowPollingModel;
     const pollingModel = await resolveAgentCronModel(agentId, requestedPollingModel);
-    const requestedWorkModel = agent.model ?? workflowPollingModel;
+    // Phase 2（sessions_spawn）: 使用强力的工作模型
+    const requestedWorkModel = agent.model ?? workflowWorkModel;
     const workModel = await resolveAgentCronModel(agentId, requestedWorkModel);
     const prompt = buildPollingPrompt(workflow.id, agent.id, workModel);
     const timeoutSeconds = workflowPollingTimeout;
