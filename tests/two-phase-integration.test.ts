@@ -27,13 +27,14 @@ describe("two-phase-integration", () => {
     });
   });
 
-  // AC2: Without polling config, defaults to "default" model
+  // AC2: Without polling config, omits model (lets OpenClaw use its default)
   // (The default polling MODEL is set in setupAgentCrons payload, not in the prompt itself.
-  //  The prompt contains the WORK model. We verify default work model here.)
+  //  The prompt contains the WORK model instruction. We verify the omit-model behavior here.)
   describe("defaults without polling config", () => {
-    it("uses 'default' work model when no workModel specified", () => {
+    it("instructs to omit model when no workModel specified (avoids 'anthropic/default' error)", () => {
       const prompt = buildPollingPrompt("feature-dev", "developer");
-      assert.ok(prompt.includes('"default"'), "default work model");
+      assert.ok(prompt.includes("omit the model parameter"), "should instruct to omit model");
+      assert.ok(!prompt.includes('"default"'), "should NOT include literal 'default' as model name");
     });
 
     it("agent id uses namespaced format (workflowId_agentId)", () => {
